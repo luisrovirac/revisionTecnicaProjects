@@ -1,0 +1,68 @@
+# Catálogo v1 — Seguridad de sistemas con LLM (baseForRules Parte III).
+- id: llm.prompt-injection
+  title: "Posible inyección de instrucciones dirigida a un LLM"
+  category: security
+  severity: high
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: regex, pattern_set: prompt_injection}
+  sources:
+    - doc: "baseForRules.md"
+      ref: "Parte III §2"
+      quote: "Separa estructuralmente las instrucciones de los datos y limita el radio de acción de un modelo manipulado."
+  safe_path: >-
+    Elimina el texto si es malicioso. Si es legítimo (p. ej. un test adversarial), muévelo a
+    un fixture identificado como tal; en el sistema, separa instrucciones y datos con
+    delimitadores estructurales.
+  agent_required: false
+
+- id: llm.output-to-sink
+  title: "Salida del modelo usada sin validar en un sumidero peligroso"
+  category: security
+  severity: high
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "baseForRules.md"
+      ref: "Parte III §1"
+      quote: "Nunca pases la salida del modelo directamente a un shell, consulta de base de datos o navegador."
+  safe_path: >-
+    Parsea la salida del modelo a una estructura tipada y valida contra una lista blanca antes
+    de usarla; nunca la concatenes en comandos, SQL o HTML.
+  agent_required: true
+  evidence_required: [model_call, sink]
+
+- id: llm.secrets-in-prompt
+  title: "Secreto o dato privado incluido en un prompt"
+  category: security
+  severity: high
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "baseForRules.md"
+      ref: "Parte III §4"
+      quote: "No coloques claves, tokens ni datos privados en un system prompt."
+  safe_path: >-
+    Saca el secreto del prompt; si la herramienta lo necesita, que lo lea el código del lado
+    servidor, nunca el modelo.
+  agent_required: true
+  evidence_required: [prompt_site, secret_reference]
+
+- id: llm.unbounded-consumption
+  title: "Llamadas a LLM sin límites de tokens o gasto"
+  category: config
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "baseForRules.md"
+      ref: "Parte III §5"
+      quote: "Establece límites de tasa, límites de tokens y alertas de gasto por agente y por operación."
+  safe_path: >-
+    Fija max_tokens y timeout por llamada, un presupuesto por operación y una alerta de gasto,
+    todos configurables.
+  agent_required: true
+  evidence_required: [model_call, missing_limit]

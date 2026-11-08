@@ -1,0 +1,81 @@
+# Catálogo v1 — Mantenibilidad. Ver docs/planInicial.md §5.
+- id: py.func.max-lines
+  title: "Función con más de 20 líneas lógicas"
+  category: maintainability
+  severity: medium
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: ast, metric: function_logical_lines, threshold: 20}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte III §4"
+      quote: "Si una función supera las **20 líneas** (sin contar docstring ni blanks), el agente debe evaluar si viola SRP y proponer división."
+  safe_path: >-
+    Extrae bloques con nombre propio por intención ("calcular_descuento"), no por paso
+    ("parte_2"). Si un bloque no admite un nombre claro, la función hace más de una cosa.
+  agent_required: false
+
+- id: any.bare-except
+  title: "Captura genérica de excepciones"
+  category: maintainability
+  severity: medium
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: tool_rule, tool: ruff, codes: [E722, BLE001]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §9"
+      quote: "Evita `except Exception:` genérico."
+  safe_path: >-
+    Captura las excepciones concretas que sabes manejar (TimeoutError, ValueError...).
+    Si necesitas una red de seguridad, regístrala con logging.exception y relánzala.
+  agent_required: false
+
+- id: any.duplication.ratio
+  title: "Bloques de código duplicados"
+  category: maintainability
+  severity: low
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: duplication, min_tokens: 50}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §2"
+      quote: "Evita duplicación de lógica o datos."
+  safe_path: >-
+    Extrae la lógica repetida a una función o módulo único y haz que los dos sitios la
+    llamen. Si las copias divergen a propósito, documenta por qué en el punto de divergencia.
+  agent_required: false
+
+- id: resilience.retry-backoff
+  title: "Operación de red sin reintentos con backoff"
+  category: maintainability
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §10"
+      quote: "Para operaciones que pueden fallar transitoriamente (llamadas a API externas, red), implementa reintentos con backoff exponencial."
+  safe_path: >-
+    Envuelve la llamada externa en un reintento con backoff exponencial y tope de intentos,
+    reintentando solo errores transitorios (timeouts, 429, 5xx).
+  agent_required: true
+  evidence_required: [call_site, missing_retry]
+
+- id: resilience.resource-release
+  title: "Recurso que puede quedar sin liberar"
+  category: maintainability
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §11"
+      quote: "Usa bloques `try...finally` o gestores de contexto (`with`) para asegurar que archivos, conexiones de red, cursores de BD se cierren correctamente."
+  safe_path: >-
+    Abre el recurso con un gestor de contexto (`with`) o garantiza su cierre en un `finally`.
+  agent_required: true
+  evidence_required: [acquire_site, missing_release_path]

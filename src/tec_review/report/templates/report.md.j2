@@ -1,0 +1,160 @@
+{% set sc = v.scorecard %}
+# Revisión técnica — {{ v.target }}
+
+`run {{ v.run_id }}` · ruleset `{{ v.ruleset }}` · nivel `{{ v.level }}` · LLM {{ "activado" if v.llm_enabled else "desactivado (--no-llm)" }}
+
+## 1. Resumen ejecutivo
+
+| Veredicto | Score | Confianza | Cobertura de reglas |
+|---|---|---|---|
+| **{{ sc.verdict }}** | **{{ sc.score }}/100** | {{ sc.confidence }} | {{ v.coverage_evaluated }} de {{ v.coverage_applicable }} reglas aplicables ({{ (sc.coverage_ratio * 100) | round | int }}%) |
+
+> **{{ v.disclaimer }}**
+
+Hallazgos por severidad: {% for sev, n in sc.by_severity.items() if n %}{{ SEV[sev] }} {{ n }}{{ " · " if not loop.last }}{% else %}ninguno{% endfor %}.
+
+{% if v.detailed %}
+**Lo que más importa:**
+{% for fv in v.detailed[:3] %}
+{{ loop.index }}. **{{ fv.finding.title }}** — `{{ fv | loc }}` ({{ SEV[fv.finding.severity.value] }})
+{% endfor %}
+{% endif %}
+
+## 2. Scorecard
+
+| Dimensión | Peso | Score | Hallazgos |
+|---|---|---|---|
+{% for d in sc.dimensions %}
+| {{ DIM[d.dimension.value] }} | {{ d.weight }} | {{ d.score }} | {{ d.findings }} |
+{% endfor %}
+
+El score es determinista: el modelo de lenguaje no lo modifica. Los pesos son provisionales hasta la calibración del Paso 1.
+
+## 3. Hallazgos priorizados
+
+{% for fv in v.detailed %}
+{% set h = fv.finding %}
+{% set i = fv.interpretation %}
+### 3.{{ loop.index }} [{{ SEV[h.severity.value] }}] {{ h.title }} — `{{ fv | loc }}`
+
+- **Regla:** `{{ h.rule_id }}` — «{{ fv.rule_quote }}» ({{ fv.rule_ref }})
+- **Por qué se marcó:** {{ h.message }}{% if h.evidence %} Evidencia: {{ h.evidence | code }}{% endif %}
+
+  Origen: {{ h.provenance.tool }} {{ h.provenance.tool_version }} (`{{ h.provenance.original_rule }}`){% if h.symbol %} · símbolo `{{ h.symbol }}`{% endif %} · fingerprint `{{ h.fingerprint }}`
+{% if i %}
+- **Verificación:** {{ STATUS[i.status] }}{% if i.claims_total %} ({{ i.claims_grounded }}/{{ i.claims_total }} afirmaciones con evidencia){% endif %}{% if i.model_used %} · modelo `{{ i.model_used }}`{% endif %}
+
+- **Por qué importa:** {{ i.explanation }} {{ i.impact }}
+{% endif %}
+- **Safe path:** {{ fv.safe_path }}
+{% if i and i.fix and i.status == "confirmed" %}
+- **Fix sugerido (NO aplicado):**
+
+{{ i.fix }}
+{% endif %}
+
+{% else %}
+No hay hallazgos en las reglas evaluadas.
+{% endfor %}
+{% if v.others %}
+### Otros hallazgos ({{ v.others | length }})
+
+| Severidad | Regla | Ubicación | Detalle |
+|---|---|---|---|
+{% for fv in v.others[:300] %}
+| {{ SEV[fv.finding.severity.value] }} | `{{ fv.finding.rule_id }}` | `{{ fv | loc }}` | {{ fv.finding.message | cell }} |
+{% endfor %}
+{% if v.others | length > 300 %}
+
+_Se muestran 300 de {{ v.others | length }}. La lista completa está en `report.json`._
+{% endif %}
+{% endif %}
+
+{% if v.track_b.enabled %}
+### Hallazgos de juicio (Pista B)
+
+El modelo los propuso sobre regiones elegidas por selectores deterministas y se publicaron solo con toda la evidencia exigida por la regla, citada literalmente. **No alteran el score ni el veredicto** y requieren revisión humana.
+
+Candidatos juzgados: {{ v.track_b.candidates }} · publicados: {{ v.track_b.published }} · descartados por el modelo: {{ v.track_b.dismissed }} · rechazados por verificación: {{ v.track_b.rejected }}{% if v.track_b.errors %} · errores: {{ v.track_b.errors }}{% endif %}{% if v.track_b.skipped_budget %} · sin presupuesto: {{ v.track_b.skipped_budget }}{% endif %}
+
+
+{% for j in v.judgments %}
+#### B.{{ loop.index }} [{{ SEV[j.severity.value] }}] {{ j.title }} — `{{ j.path }}:{{ j.start_line }}`
+
+- **Regla:** `{{ j.rule_id }}` — «{{ j.rule_quote }}» ({{ j.rule_ref }})
+- **Juicio:** {{ j.explanation }} {{ j.impact }}
+- **Evidencia verificada:**
+{% for e in j.evidence %}
+  - {{ e.field }}{% if e.lines %} (líneas {{ e.lines | join(", ") }}){% endif %}: {{ e.quote | code }}
+{% endfor %}
+- **Safe path:** {{ j.safe_path }}
+- **Fix sugerido (NO aplicado):** {{ j.fix }}
+- Origen: Pista B · modelo `{{ j.model_used }}` · símbolo `{{ j.symbol }}`
+
+{% else %}
+Ningún juicio superó la verificación.
+
+{% endfor %}
+{% endif %}
+## 4. Plan de sprint
+
+Una tarea por regla, en orden de prioridad. El esfuerzo es una estimación por severidad.
+
+| # | Tarea | Severidad | Ocurrencias | Esfuerzo | Archivos |
+|---|---|---|---|---|---|
+{% for t in v.sprint %}
+| {{ loop.index }} | {{ t.title | cell }} (`{{ t.rule_id }}`) | {{ SEV[t.severity.value] }} | {{ t.occurrences }} | {{ t.effort }} | {{ t.files[:3] | join(", ") | cell }}{% if t.files | length > 3 %} (+{{ t.files | length - 3 }}){% endif %} |
+{% endfor %}
+
+## 5. Reglas no evaluadas
+
+Estas reglas aplican al proyecto pero no se evaluaron en esta ejecución. No tener hallazgos en ellas **no** significa que se cumplan.
+
+| Regla | Motivo | Detalle |
+|---|---|---|
+{% for g in v.gaps %}
+| `{{ g.rule_id }}` | {{ GAP[g.reason] }} | {{ g.detail | cell }} |
+{% endfor %}
+{% if v.partial %}
+
+**Evaluadas parcialmente** (hay lenguajes presentes sin evaluador para la regla):
+
+{% for rule_id, langs in v.partial.items() %}
+- `{{ rule_id }}`: sin cubrir {{ langs | join(", ") }}
+{% endfor %}
+{% endif %}
+
+## 6. Anexo de metodología
+
+**Pipeline:** inventario → analizadores deterministas → normalización contra el catálogo → triage → interpretación del modelo (solo hallazgos seleccionados) → verificación → scoring → reporte.
+
+**Herramientas ejecutadas**
+
+| Herramienta | Versión | Estado | Detalle |
+|---|---|---|---|
+{% for t in v.tools %}
+| {{ t.name }} | {{ t.version or "—" }} | {{ t.status }} | {{ t.detail | cell }} |
+{% endfor %}
+
+**Modelo de lenguaje**
+
+{% if v.llm.calls %}
+- Adaptador: `{{ v.llm.adapter }}` · modelos: {{ v.llm.models_used | join(", ") or "—" }}
+- Llamadas: {{ v.llm.calls }} ({{ v.llm.failed_calls }} fallidas) · tokens: {{ v.llm.prompt_tokens }} entrada / {{ v.llm.completion_tokens }} salida · latencia acumulada: {{ (v.llm.elapsed_ms / 1000) | round(1) }} s
+- Interpretaciones: {{ v.metrics.confirmed }} verificadas, {{ v.metrics.unverifiable }} rechazadas, {{ v.metrics.skipped_budget }} omitidas por presupuesto
+- Tasa de confirmación: {{ v.metrics.confirmed_rate if v.metrics.confirmed_rate is not none else "—" }} · tasa de alucinación (afirmaciones sin evidencia / total): {{ v.metrics.hallucination_rate if v.metrics.hallucination_rate is not none else "—" }}
+{% else %}
+No se usó ningún modelo en esta ejecución. Todo el contenido procede de herramientas deterministas y del catálogo de reglas.
+{% endif %}
+
+{% if v.warnings %}
+**Advertencias**
+
+{% for w in v.warnings %}
+- {{ w }}
+{% endfor %}
+{% endif %}
+
+**Tiempos por nodo (ms):** {% for k, ms in v.node_timings_ms.items() %}{{ k }} {{ ms }}{{ " · " if not loop.last }}{% endfor %}
+
+_Generado por tec-review. El reporte determinista (hallazgos, score, veredicto) es reproducible con el mismo commit, configuración y versiones de herramientas; solo las interpretaciones del modelo pueden variar entre ejecuciones._

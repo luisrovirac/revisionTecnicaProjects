@@ -1,0 +1,16 @@
+# Banco de candidatas: NO se aplican. Se promueven al catálogo solo si pasan los seis filtros
+# (planInicial §5.2) y el protocolo de tres casos.
+- id: any.func.max-params
+  motivo: "Sin fuente literal en Rules/: ningún documento fija un máximo de parámetros."
+- id: any.layer.violation
+  motivo: "Requiere capas declaradas en la configuración del operador (Paso 3). Fuente: baseForRules Parte II §13."
+- id: sec.dep.unpinned
+  motivo: "Fuente débil (RULES - 01 Parte II §13 trata la instalación automática, no el pinning). Revisar con evidencia."
+- id: any.linter.config-missing
+  motivo: "Consecuencial dudosa como hallazgo de auditoría; candidata para Paso 1. Fuente: RULES - 01 Parte II §15."
+- id: any.func.max-nesting
+  motivo: "Sin umbral en Rules/. Útil como señal de triage, no como regla."
+- id: any.dead-code
+  motivo: "Ruido alto sin grafo de llamadas completo (Paso 3)."
+- id: obs.llm-calls-unlogged
+  motivo: "baseForRules Parte III §7. Requiere Pista B con evidencia; pendiente de eval."

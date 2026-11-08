@@ -1,0 +1,65 @@
+# Catálogo v1 — Seguridad. Las reglas sec.* se delegan en SecureProjects (ADR 0002):
+# la severidad la fija la herramienta (severity: inherit), el catálogo aporta cita y safe_path.
+- id: sec.secret-exposed
+  title: "Posible secreto en el repositorio"
+  category: security
+  severity: inherit
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: tool_rule, tool: secureprojects, codes: [secret]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §8"
+      quote: "Las credenciales (API keys, contraseñas) deben ser leídas desde variables de entorno o un gestor de secretos (Vault, AWS Secrets Manager), nunca expuestas en logs o repositorios."
+  safe_path: >-
+    Revoca y rota la credencial (ya está comprometida), elimínala del historial y léela
+    desde una variable de entorno o un gestor de secretos.
+  agent_required: false
+
+- id: sec.dep.vulnerable
+  title: "Dependencia con vulnerabilidad conocida"
+  category: security
+  severity: inherit
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: tool_rule, tool: secureprojects, codes: [dependency-vuln]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte IV §5"
+      quote: "Indicar si se viola el principio de mínima exposición o seguridad."
+  safe_path: >-
+    Actualiza a la versión corregida que indica la herramienta; si no existe, aísla el uso
+    del componente o sustitúyelo, y registra la excepción con fecha de revisión.
+  agent_required: false
+
+- id: sec.sast
+  title: "Patrón de código inseguro"
+  category: security
+  severity: inherit
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: tool_rule, tool: secureprojects, codes: [sast]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte IV §5"
+      quote: "Indicar si se viola el principio de mínima exposición o seguridad."
+  safe_path: >-
+    Sustituye la construcción peligrosa por su alternativa segura (consultas parametrizadas,
+    listas de argumentos sin shell, deserialización segura) y valida la entrada en el límite.
+  agent_required: false
+
+- id: sec.iac-misconfig
+  title: "Configuración de infraestructura o contenedor insegura"
+  category: security
+  severity: inherit
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: tool_rule, tool: secureprojects, codes: [iac-misconfig, container]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §10"
+      quote: "Cada componente debe tener acceso solo a la información y recursos necesarios para su función."
+  safe_path: >-
+    Reduce privilegios al mínimo: usuario no root, capacidades eliminadas, puertos y
+    permisos explícitos, imágenes fijadas por versión.
+  agent_required: false

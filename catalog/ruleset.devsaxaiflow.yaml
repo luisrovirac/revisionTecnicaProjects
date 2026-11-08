@@ -1,0 +1,4 @@
+# universal + RULES-Plus.md (referencia del proyecto DevSaxAIFloow).
+name: devsaxaiflow
+documents: ["RULES - 01.md", "baseForRules.md", "RULES-Plus.md"]
+exclude_rules: []

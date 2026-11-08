@@ -1,0 +1,112 @@
+# Catálogo v1 — Pruebas, configuración y observabilidad.
+- id: any.tests.location
+  title: "Archivo de test fuera de tests/ o sin prefijo test_"
+  category: testing
+  severity: low
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: path, metric: test_file_location}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §14"
+      quote: "**Ubicación**: Los tests deben ir en un directorio `tests/` con prefijo `test_` en cada archivo."
+  safe_path: >-
+    Mueve el archivo a `tests/` y renómbralo con prefijo `test_` (p. ej. `tests/test_pagos.py`).
+  agent_required: false
+
+- id: any.tests.missing
+  title: "Módulo importante sin pruebas asociadas"
+  category: testing
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: graph, metric: module_without_test}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §14"
+      quote: "**Unitarias**: Cada clase o función importante debe tener pruebas unitarias."
+  safe_path: >-
+    Añade `tests/test_<modulo>.py` cubriendo el comportamiento público del módulo, empezando
+    por el camino feliz y el error más probable.
+  agent_required: false
+
+- id: any.coverage.min
+  title: "Cobertura inferior al 80% en módulo crítico"
+  category: testing
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: sandbox, metric: line_coverage, threshold: 80}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §14"
+      quote: "**Cobertura**: Apunta al menos al 80% de cobertura en módulos críticos."
+  safe_path: >-
+    Prioriza tests para las ramas no cubiertas del módulo crítico, empezando por manejo de
+    errores y límites.
+  agent_required: false
+
+- id: py.no-print
+  title: "Uso de print en lugar de logging"
+  category: config
+  severity: low
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: tool_rule, tool: ruff, codes: [T201]}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §7"
+      quote: "No uses `print`. Utiliza un sistema de logging con niveles (DEBUG, INFO, ERROR) y formato que incluya timestamp, nivel y módulo de origen."
+  safe_path: >-
+    Usa `logger = logging.getLogger(__name__)` y el nivel adecuado (`logger.info`,
+    `logger.error`). En una CLI, la salida para el usuario va por la capa de presentación.
+  agent_required: false
+
+- id: any.hardcoded-config
+  title: "Configuración fija en el código (URL, ruta, host)"
+  category: config
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: regex, pattern_set: hardcoded_config}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §5"
+      quote: "Nunca uses valores fijos en el código."
+  safe_path: >-
+    Lee el valor desde una variable de entorno o archivo de configuración validado al inicio,
+    con un nombre explícito (p. ej. `PAYMENTS_API_URL`).
+  agent_required: false
+
+- id: ts.no-any
+  title: "Uso de any en TypeScript"
+  category: maintainability
+  severity: low
+  languages: [typescript]
+  scope: ["**/*.ts", "**/*.tsx"]
+  check: {kind: ast, metric: ts_explicit_any}   # tree-sitter en proceso: no ejecuta eslint del target
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §16"
+      quote: "Evita `any` o tipos dinámicos no necesarios."
+  safe_path: >-
+    Declara una interfaz o tipo concreto; para datos externos usa `unknown` y estréchalo con
+    un parser o guard de tipo.
+  agent_required: false
+
+- id: config.startup-validation
+  title: "Configuración crítica no validada al arrancar"
+  category: config
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §6"
+      quote: "Si falta alguna variable crítica, la aplicación debe fallar con un mensaje claro y detener su ejecución."
+  safe_path: >-
+    Carga la configuración en un objeto tipado al inicio y falla con un mensaje que nombre la
+    variable que falta; nunca leas variables de entorno dispersas en tiempo de ejecución.
+  agent_required: true
+  evidence_required: [config_read_site]

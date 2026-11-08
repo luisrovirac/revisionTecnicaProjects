@@ -1,0 +1,166 @@
+# Catálogo v1 — Arquitectura y diseño.
+- id: any.class.max-public-methods
+  title: "Clase con más de 5 métodos públicos"
+  category: design
+  severity: low
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: ast, metric: class_public_methods, threshold: 5}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte III §4"
+      quote: "Si una clase tiene más de **5 métodos públicos** o más de **100 líneas**, debe considerar la posibilidad de dividirla en múltiples clases más cohesivas."
+  safe_path: >-
+    Agrupa los métodos por la razón de cambio que comparten y separa cada grupo en una clase
+    con su propia interfaz; la clase original delega o desaparece.
+  agent_required: false
+
+- id: any.class.max-lines
+  title: "Clase con más de 100 líneas lógicas"
+  category: design
+  severity: low
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: ast, metric: class_logical_lines, threshold: 100}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte III §4"
+      quote: "Si una clase tiene más de **5 métodos públicos** o más de **100 líneas**, debe considerar la posibilidad de dividirla en múltiples clases más cohesivas."
+  safe_path: >-
+    Identifica los colaboradores implícitos (bloques de atributos y métodos que se usan juntos)
+    y extráelos a clases propias inyectadas por constructor.
+  agent_required: false
+
+- id: py.import-in-method
+  title: "Import no estándar dentro de una función"
+  category: design
+  severity: low
+  languages: [python]
+  scope: ["**/*.py"]
+  check: {kind: ast, metric: non_stdlib_import_in_function, threshold: 0}
+  sources:
+    - doc: "RULES-Plus.md"
+      ref: "§10 regla 29"
+      quote: "Cualquier `import` dentro de un método que no sea para librería estándar es sospechoso."
+  safe_path: >-
+    Mueve el import al inicio del módulo y recibe la dependencia por constructor o parámetro.
+    Si el import es perezoso por coste de arranque, documenta el motivo junto al import.
+  agent_required: false
+
+- id: any.import.cycle
+  title: "Ciclo de dependencias entre módulos"
+  category: design
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: graph, metric: import_cycle}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §5"
+      quote: "los módulos deben depender lo menos posible entre sí (acoplamiento bajo)."
+  safe_path: >-
+    Rompe el ciclo extrayendo la abstracción compartida a un módulo del que ambos dependan,
+    o invierte la dependencia con una interfaz en el módulo de mayor nivel.
+  agent_required: false
+
+- id: design.srp
+  title: "Unidad con más de una razón para cambiar"
+  category: design
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §8"
+      quote: "**S – Responsabilidad Única (SRP)**: Una clase, módulo o función debe tener una única razón para cambiar."
+  safe_path: >-
+    Nombra cada responsabilidad por separado y extrae cada una a su propia unidad; la unidad
+    original queda como coordinadora delgada.
+  agent_required: true
+  evidence_required: [symbol, responsibilities]
+
+- id: design.dip.direct-instantiation
+  title: "Dependencia instanciada dentro de un método"
+  category: design
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte III §3"
+      quote: "Cualquier instanciación de dependencias dentro de un método que no sea parte de una fábrica es sospechosa y debe evitarse."
+  safe_path: >-
+    Recibe la dependencia por constructor tipada contra una interfaz y ensámblala en la
+    composición raíz o en una fábrica.
+  agent_required: true
+  evidence_required: [instantiation_site]
+
+- id: design.ocp.conditional-dispatch
+  title: "Cadena de condicionales que dispersa comportamiento variable"
+  category: design
+  severity: low
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte III §6"
+      quote: "El agente debe favorecer patrones como **Strategy**, **Factory Method**, **Template Method** o **Decorator** en lugar de cadenas de `if/elif` o `switch` que dispersan lógica."
+  safe_path: >-
+    Sustituye la cadena por un registro de estrategias indexado por la clave de decisión;
+    añadir un caso nuevo debe ser añadir una entrada, no editar la función.
+  agent_required: true
+  evidence_required: [branch_site]
+
+- id: design.isp.fat-interface
+  title: "Interfaz general con demasiados métodos"
+  category: design
+  severity: low
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §8"
+      quote: "**I – Segregación de Interfaces (ISP)**: Interfaces específicas y pequeñas son mejores que una interfaz general con muchos métodos."
+  safe_path: >-
+    Divide la interfaz por cliente: cada consumidor depende solo del protocolo con los
+    métodos que realmente usa.
+  agent_required: true
+  evidence_required: [interface, unused_methods_by_client]
+
+- id: design.lsp.contract-break
+  title: "Subclase que rompe el contrato de su base"
+  category: design
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte I §8"
+      quote: "**L – Sustitución de Liskov (LSP)**: Las subclases deben poder reemplazar a sus clases base sin alterar el comportamiento correcto."
+  safe_path: >-
+    Respeta la firma, las excepciones y la semántica del método base; si la subclase no puede
+    cumplirlo, usa composición en lugar de herencia.
+  agent_required: true
+  evidence_required: [base_method, override]
+
+- id: design.thin-entrypoints
+  title: "Punto de entrada con lógica de negocio"
+  category: design
+  severity: medium
+  languages: [any]
+  scope: ["**/*"]
+  check: {kind: agent}
+  sources:
+    - doc: "RULES - 01.md"
+      ref: "Parte II §3"
+      quote: "Los puntos de entrada (ej. controladores, tareas programadas, manejadores de eventos) deben ser delgados: solo orquestar y delegar en servicios especializados, sin contener lógica de negocio compleja."
+  safe_path: >-
+    Mueve la lógica a un servicio con interfaz propia y deja en el controlador solo el
+    parseo de la entrada, la llamada al servicio y el mapeo de la respuesta.
+  agent_required: true
+  evidence_required: [entrypoint, business_logic_lines]

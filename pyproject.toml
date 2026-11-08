@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tec-review"
+version = "0.1.0"
+description = "Auditoría técnica híbrida (determinista + agéntica) de proyectos contra Rules/"
+requires-python = ">=3.11"
+dependencies = [
+  "typer==0.28.0",
+  "pydantic==2.14.3",
+  "httpx==0.28.1",
+  "jinja2==3.1.6",
+  "pyyaml==6.0.3",
+  "pathspec==1.1.1",
+  "ruff==0.17.4",   # analizador fijado: reproducibilidad (C7)
+  "tree-sitter==0.26.0",
+  "tree-sitter-language-pack==1.25.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0"]
+
+[project.scripts]
+tec-review = "tec_review.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tec_review = ["report/templates/*.j2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["fixtures", ".*", "*.egg-info"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["tests/fixtures"]

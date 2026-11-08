@@ -1,0 +1,4 @@
+# Ruleset por defecto (D6): RULES - 01.md + baseForRules.md. Aplica a cualquier repositorio.
+name: universal
+documents: ["RULES - 01.md", "baseForRules.md"]
+exclude_rules: [py.import-in-method]   # su única fuente es RULES-Plus.md
