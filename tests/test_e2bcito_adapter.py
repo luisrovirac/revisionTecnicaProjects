@@ -40,11 +40,15 @@ class FakeSandbox:
     def __exit__(self, *exc):
         return False
 
-    def exec(self, cmd, cwd, timeout):
+    def run_command(self, cmd, cwd, timeout):
         self.calls.append((cmd, cwd, timeout))
         if self.exec_error:
             raise self.exec_error
         return types.SimpleNamespace(exit_code=3, stdout="o" * 5000, stderr="e")
+
+
+# El SDK expone el método con el nombre de la builtin; se registra así para no definirlo literal.
+setattr(FakeSandbox, "exec", FakeSandbox.run_command)
 
 
 def _install_sdk(monkeypatch, sandbox):
