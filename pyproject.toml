@@ -9,6 +9,7 @@ description = "Auditoría técnica híbrida (determinista + agéntica) de proyec
 requires-python = ">=3.11"
 dependencies = [
   "typer==0.28.0",
+  "rich==15.0.0",   # progreso en consola (ya lo trae typer; se fija explícito)
   "pydantic==2.14.3",
   "httpx==0.28.1",
   "jinja2==3.1.6",
@@ -38,3 +39,8 @@ norecursedirs = ["fixtures", ".*", "*.egg-info"]
 [tool.ruff]
 line-length = 100
 extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+# Códigos que tec-review usa en su auto-auditoría (ruff --select propio) pero que
+# este repo no activa: se conservan sus noqa documentales sin disparar RUF100.
+external = ["S603", "S701", "PLC0415"]

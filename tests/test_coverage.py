@@ -5,6 +5,7 @@ import json
 import tarfile
 
 from conftest import ROOT, write_tree
+
 from tec_review.domain.ports import SandboxError, SandboxRun
 from tec_review.facts.coverage import COVERAGE_FILE, CoverageAnalyzer, build_archive
 from tec_review.facts.inventory import build_inventory
@@ -50,7 +51,8 @@ def test_enough_coverage_and_small_modules_are_not_reported(tmp_path):
 def test_archive_contains_only_inventory_files_never_ignored_secrets(tmp_path):
     sandbox = FakeSandbox({"src/motor.py": 90.0})
     _run(tmp_path, sandbox)
-    names = tarfile.open(fileobj=io.BytesIO(sandbox.received), mode="r:gz").getnames()
+    with tarfile.open(fileobj=io.BytesIO(sandbox.received), mode="r:gz") as tar:
+        names = tar.getnames()
     assert ".env" not in names and "src/motor.py" in names
 
 
@@ -62,4 +64,5 @@ def test_sandbox_failure_becomes_tool_error_not_crash(tmp_path):
 def test_build_archive_roundtrip(tmp_path):
     write_tree(tmp_path, {"a.py": "x = 1\n"})
     data = build_archive(tmp_path, ["a.py"])
-    assert tarfile.open(fileobj=io.BytesIO(data), mode="r:gz").getnames() == ["a.py"]
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+        assert tar.getnames() == ["a.py"]

@@ -3,28 +3,29 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
 from tec_review import __version__
 from tec_review.config import ConfigError, Settings, load_settings
+from tec_review.domain.models import ToolRun
+from tec_review.domain.ports import AnalyzerResult, ProgressPort
 from tec_review.facts.adapters.ruff import RuffAnalyzer
 from tec_review.facts.adapters.secureprojects import SecureProjectsAnalyzer
-from tec_review.facts.inventory import PathGuard, PathGuardError
-from tec_review.domain.models import ToolRun
-from tec_review.domain.ports import AnalyzerResult
 from tec_review.facts.coverage import CoverageAnalyzer
 from tec_review.facts.duplication import DuplicationAnalyzer
+from tec_review.facts.inventory import PathGuard, PathGuardError
 from tec_review.facts.paths import PathRulesAnalyzer
 from tec_review.facts.patterns import PatternAnalyzer
-from tec_review.facts.python_graph import PythonGraphAnalyzer
 from tec_review.facts.python_ast import PythonAstAnalyzer
+from tec_review.facts.python_graph import PythonGraphAnalyzer
 from tec_review.facts.typescript_ast import TypeScriptAnalyzer
 from tec_review.llm.router_adapter import LlmRouterAdapter
 from tec_review.pipeline import Dependencies, RunState, run_pipeline
+from tec_review.progress import ConsoleProgress, NullProgress
 from tec_review.rules.capabilities import SANDBOX_TOOL
 from tec_review.rules.catalog import Catalog, load_all_rules, load_catalog
 from tec_review.sandbox.e2bcito_adapter import E2bcitoSandbox
@@ -59,14 +60,20 @@ def _prepare_out_dir(target: Path, out: Path | None, run_id: str) -> Path:
     return out_dir
 
 
-def _build_llm(settings: Settings, warnings: list[str]) -> LlmRouterAdapter | None:
+def _build_llm(settings: Settings, warnings: list[str],
+               progress: ProgressPort) -> LlmRouterAdapter | None:
     if not settings.use_llm:
+        progress.note("LLM desactivado (--no-llm): solo capa determinista.")
         return None
+    progress.note(f"Comprobando llm-router en {settings.llm_url}…")
     llm = LlmRouterAdapter(settings.llm_url, settings.llm_timeout_s, settings.llm_role,
                            settings.llm_model)
     if llm.health():
+        progress.note("llm-router disponible.")
         return llm
-    warnings.append(f"llm-router no responde en {settings.llm_url}: modo degradado sin LLM (I9).")
+    warning = f"llm-router no responde en {settings.llm_url}: modo degradado sin LLM (I9)."
+    warnings.append(warning)
+    progress.note(warning, level="warn")
     return None
 
 
@@ -80,26 +87,31 @@ class _UnavailableAnalyzer:
         return AnalyzerResult(run=ToolRun(name=self.name, status="unavailable", detail=self.detail))
 
 
-def _coverage_analyzer(settings: Settings, rules: list):
+def _coverage_analyzer(settings: Settings, rules: list, progress: ProgressPort):
+    progress.note("Comprobando sandbox e2bcito…")
     sandbox = E2bcitoSandbox()
     ok, detail = sandbox.available()
     if not ok:
+        progress.note(f"sandbox no disponible: {detail}", level="warn")
         return _UnavailableAnalyzer(SANDBOX_TOOL, detail)
     return CoverageAnalyzer(rules, sandbox, critical_globs=settings.critical_modules)
 
 
 def _build_dependencies(settings: Settings, catalog: Catalog, run_id: str,
-                        warnings: list[str]) -> Dependencies:
+                        warnings: list[str], progress: ProgressPort | None = None) -> Dependencies:
+    progress = progress or NullProgress()
     rules = list(catalog.rules.values())
     telemetry = HttpTelemetry(settings.telemetry_url, f"tec-review-{run_id}") \
         if settings.telemetry_enabled else NullTelemetry()
     analyzers = [PathRulesAnalyzer(rules), PythonAstAnalyzer(rules), TypeScriptAnalyzer(rules),
                  PatternAnalyzer(rules), PythonGraphAnalyzer(rules), DuplicationAnalyzer(rules),
                  RuffAnalyzer(rules),
-                 SecureProjectsAnalyzer(settings.secureprojects_bin, settings.secureprojects_timeout_s)]
+                 SecureProjectsAnalyzer(settings.secureprojects_bin, settings.secureprojects_timeout_s,
+                                        progress=progress)]
     if settings.run_tests:
-        analyzers.append(_coverage_analyzer(settings, rules))
-    return Dependencies(analyzers=analyzers, llm=_build_llm(settings, warnings), telemetry=telemetry)
+        analyzers.append(_coverage_analyzer(settings, rules, progress))
+    return Dependencies(analyzers=analyzers, llm=_build_llm(settings, warnings, progress),
+                        telemetry=telemetry, progress=progress)
 
 
 def _summary(state: RunState) -> None:
@@ -120,18 +132,20 @@ def review(
     ruleset: Annotated[str, typer.Option(help="universal | devsaxaiflow")] = "universal",
     level: Annotated[str, typer.Option(help="quick | standard | deep")] = "standard",
     no_llm: Annotated[bool, typer.Option("--no-llm", help="Solo capa determinista.")] = False,
-    out: Annotated[Optional[Path],
+    out: Annotated[Path | None,
                    typer.Option(help="Directorio de salida (fuera del proyecto).")] = None,
-    budget: Annotated[Optional[int], typer.Option(help="Presupuesto de tokens por ejecución.")] = None,
-    llm_url: Annotated[Optional[str], typer.Option(help="URL de llm-router.")] = None,
-    llm_role: Annotated[Optional[str], typer.Option(help="Rol del catálogo de llm-router.")] = None,
-    llm_model: Annotated[Optional[str], typer.Option(help="Modelo explícito (anula el rol).")] = None,
+    budget: Annotated[int | None, typer.Option(help="Presupuesto de tokens por ejecución.")] = None,
+    llm_url: Annotated[str | None, typer.Option(help="URL de llm-router.")] = None,
+    llm_role: Annotated[str | None, typer.Option(help="Rol del catálogo de llm-router.")] = None,
+    llm_model: Annotated[str | None, typer.Option(help="Modelo explícito (anula el rol).")] = None,
     run_tests: Annotated[bool, typer.Option("--run-tests",
                                             help="Cobertura ejecutando tests en e2bcito.")] = False,
     track_b: Annotated[bool, typer.Option("--track-b",
                                           help="Reglas de juicio (Pista B). Implícito en deep.")] = False,
     telemetry: Annotated[bool, typer.Option("--telemetry",
                                             help="Enviar eventos al servicio telemetry.")] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q",
+                                        help="No mostrar el progreso paso a paso.")] = False,
 ) -> None:
     """Evalúa un proyecto y genera report.md, report.json, facts.json y manifest.json."""
     try:
@@ -142,16 +156,21 @@ def review(
         target = path.resolve()
         if not target.is_dir():
             raise _fail(f"La ruta no existe o no es un directorio: {target}")
-        run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + f"-{settings.fingerprint()[:6]}"
+        run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S") + f"-{settings.fingerprint()[:6]}"
         out_dir = _prepare_out_dir(target, out, run_id)
     except (ConfigError, ValueError, PathGuardError, FileExistsError) as exc:
         raise _fail(str(exc)) from exc
-    warnings: list[str] = []
-    deps = _build_dependencies(settings, catalog, run_id, warnings)
-    state = RunState(settings=settings, catalog=catalog, target=target, run_id=run_id,
-                     out_dir=out_dir, warnings=warnings)
     typer.echo(f"tec-review {__version__} - auditando {target}")
-    _summary(run_pipeline(state, deps))
+    warnings: list[str] = []
+    progress = NullProgress() if quiet else ConsoleProgress()
+    with progress:
+        progress.note(f"Catálogo '{settings.ruleset}': {len(catalog.rules)} reglas · "
+                      f"nivel {settings.level} · salida {out_dir}")
+        deps = _build_dependencies(settings, catalog, run_id, warnings, progress)
+        state = RunState(settings=settings, catalog=catalog, target=target, run_id=run_id,
+                         out_dir=out_dir, warnings=warnings)
+        final = run_pipeline(state, deps)
+    _summary(final)
 
 
 @app.command()

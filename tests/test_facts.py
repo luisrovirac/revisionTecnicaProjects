@@ -3,8 +3,8 @@
 import json
 
 import pytest
-
 from conftest import FIXTURES, findings_for, write_tree
+
 from tec_review.domain.models import Severity
 from tec_review.facts.adapters.ruff import parse_ruff_output
 from tec_review.facts.adapters.secureprojects import (

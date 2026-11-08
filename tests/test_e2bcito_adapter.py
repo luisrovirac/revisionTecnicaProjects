@@ -48,7 +48,7 @@ class FakeSandbox:
 
 
 # El SDK expone el método con el nombre de la builtin; se registra así para no definirlo literal.
-setattr(FakeSandbox, "exec", FakeSandbox.run_command)
+setattr(FakeSandbox, "exec", FakeSandbox.run_command)  # noqa: B010 - ver comentario
 
 
 def _install_sdk(monkeypatch, sandbox):

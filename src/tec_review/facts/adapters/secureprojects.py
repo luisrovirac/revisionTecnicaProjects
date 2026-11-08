@@ -8,6 +8,7 @@ una supresión definida en el repo auditado no puede ocultar un hallazgo (I10).
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -15,7 +16,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from tec_review.domain.models import Location, RawFact, Severity, ToolRun
-from tec_review.domain.ports import AnalyzerResult
+from tec_review.domain.ports import AnalyzerResult, ProgressPort
 from tec_review.facts.adapters.process import ToolExecutionError, run_tool
 
 TOOL = "secureprojects"
@@ -87,11 +88,71 @@ def parse_report(raw: str) -> tuple[str, list[RawFact], int]:
     return report.tool.version, facts, len(converted) - len(facts)
 
 
+_STEP = re.compile(r"^\[(?P<clock>\d+:\d+(?::\d+)?)\]\s+(?P<msg>.*)$")
+_PLAN = re.compile(r"Ejecutando (?P<n>\d+) de \d+ analizadores: (?P<names>.+)$")
+_START = re.compile(r"^->\s*(?P<name>[\w.-]+): iniciando")
+_DONE = re.compile(r"^\[(?P<k>\d+)/(?P<n>\d+)\]\s*(?P<name>[\w.-]+):")
+
+
+class ScanProgress:
+    """Traduce el log de SecureProjects (stderr) a progreso legible en tec-review.
+
+    SecureProjects anuncia sus fases y sus herramientas internas ("-> trivy: iniciando",
+    "[4/6] semgrep: ok, ..."). Se reenvía cada línea y se mantiene qué sigue en curso.
+    """
+
+    def __init__(self, progress: ProgressPort) -> None:
+        self.progress = progress
+        self.running: list[str] = []
+        self.done = 0
+        self.total: int | None = None
+
+    def feed(self, line: str) -> None:
+        line = line.strip()
+        if not line or line.startswith("report written"):
+            return
+        if line.startswith("{"):
+            self._json_log(line)
+            return
+        match = _STEP.match(line)
+        msg = match["msg"].strip() if match else line
+        clock = f"[{match['clock']}] " if match else ""
+        self._track(msg)
+        self.progress.note(f"secureprojects {clock}{msg}", level="detail")
+        self.progress.activity(self.describe(msg), self.done if self.total else None, self.total)
+
+    def describe(self, last: str) -> str:
+        if self.running:
+            return f"en curso: {', '.join(self.running)}"
+        return last
+
+    def _track(self, msg: str) -> None:
+        if plan := _PLAN.search(msg):
+            self.total = int(plan["n"])
+        elif start := _START.match(msg):
+            if start["name"] not in self.running:
+                self.running.append(start["name"])
+        elif done := _DONE.match(msg):
+            self.done, self.total = int(done["k"]), int(done["n"])
+            if done["name"] in self.running:
+                self.running.remove(done["name"])
+
+    def _json_log(self, line: str) -> None:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            return
+        scanner = f"{entry['scanner']}: " if entry.get("scanner") else ""
+        level = "warn" if str(entry.get("level", "")).upper() in {"WARN", "ERROR"} else "detail"
+        self.progress.note(f"secureprojects {scanner}{entry.get('msg', '')}", level=level)
+
+
 class SecureProjectsAnalyzer:
     name = TOOL
 
-    def __init__(self, binary: Path | None, timeout_s: float = DEFAULT_TIMEOUT_S) -> None:
-        self.binary, self.timeout_s = binary, timeout_s
+    def __init__(self, binary: Path | None, timeout_s: float = DEFAULT_TIMEOUT_S,
+                 progress: ProgressPort | None = None) -> None:
+        self.binary, self.timeout_s, self.progress = binary, timeout_s, progress
 
     def available(self) -> bool:
         return self.binary is not None and self.binary.is_file()
@@ -114,7 +175,8 @@ class SecureProjectsAnalyzer:
         with tempfile.TemporaryDirectory(prefix="tec-review-sp-") as out_dir:
             cmd = [str(self.binary), "scan", str(root), "-f", "json", "-o", out_dir,
                    "--offline", "--safe", "--fail-on", "none"]
-            result = run_tool(cmd, timeout_s=self.timeout_s)
+            on_line = ScanProgress(self.progress).feed if self.progress is not None else None
+            result = run_tool(cmd, timeout_s=self.timeout_s, on_stderr_line=on_line)
             if result.returncode not in (0, 1):
                 raise ToolExecutionError(
                     f"secureprojects terminó con código {result.returncode}: {result.stderr[:300]}"

@@ -3,9 +3,9 @@
 import json
 
 import pytest
+from conftest import FIXTURES
 from typer.testing import CliRunner
 
-from conftest import FIXTURES
 from tec_review.cli import EXIT_TOOL_ERROR, app
 
 runner = CliRunner()

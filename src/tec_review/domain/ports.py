@@ -58,6 +58,24 @@ class TelemetryPort(Protocol):
     def publish(self, event_type: str, **payload: object) -> None: ...
 
 
+class ProgressPort(Protocol):
+    """Avisa al usuario de qué está haciendo la ejecución. Nunca afecta al resultado."""
+
+    def stage_start(self, index: int, total: int, name: str, label: str) -> None: ...
+
+    def step(self, detail: str, done: int | None = None, total: int | None = None) -> None: ...
+
+    def activity(self, detail: str, done: int | None = None, total: int | None = None) -> None:
+        """Qué está haciendo ahora el elemento en curso (p. ej. la herramienta externa)."""
+        ...
+
+    def stage_end(self, name: str, duration_ms: int, summary: str = "") -> None: ...
+
+    def note(self, message: str, level: str = "info") -> None:
+        """`level`: info | detail | warn."""
+        ...
+
+
 class SandboxRun(BaseModel):
     exit_code: int
     stdout: str = ""

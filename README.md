@@ -9,15 +9,78 @@ inventario → analizadores (AST, ruff, SecureProjects) → catálogo → triage
 
 El modelo nunca decide qué está mal, ni dónde, ni con qué severidad. Explica hechos ya comprobados. Si su explicación cita líneas o identificadores que no están en el contexto que recibió, se descarta y se publica una plantilla determinista. Diseño completo en [`docs/planInicial.md`](docs/planInicial.md); decisiones en [`docs/adr/`](docs/adr/).
 
-## Instalación
+## Instalación (paso a paso, en cmd)
 
-```powershell
-py -3.11 -m venv .venv
-.venv\Scripts\pip install -e ".[dev]"
-.venv\Scripts\tec-review doctor
+**1. Comprobar Python 3.11 o superior**
+
+```bat
+py -3.11 --version
 ```
 
+Debe mostrar `Python 3.11.x`. Si no lo encuentra, instala Python 3.11 desde python.org antes de seguir.
+
+**2. Entrar en la carpeta de tec-review**
+
+```bat
+cd C:\ruta\a\revisionTecnicaProjects
+```
+
+**3. Crear el entorno virtual**
+
+```bat
+py -3.11 -m venv .venv
+```
+
+Crea la carpeta `.venv`. Si ya existe, no borra nada.
+
+**4. Instalar tec-review dentro del entorno virtual**
+
+```bat
+.venv\Scripts\python -m pip install -e ".[dev]"
+```
+
+Debe terminar con `Successfully installed ...`. Esto crea el comando `tec-review` en `.venv\Scripts\`.
+
+**5. Activar el entorno virtual**
+
+```bat
+.venv\Scripts\activate.bat
+```
+
+Al principio del prompt debe aparecer `(.venv)`. Sin este paso, cmd responde `"tec-review" no se reconoce como un comando interno o externo`. La activación solo dura en esa ventana: en una ventana nueva repite los pasos 2 y 5. En PowerShell se usa `.venv\Scripts\Activate.ps1`; si lo bloquea, ejecuta antes `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+**6. Comprobar la instalación**
+
+```bat
+tec-review doctor
+```
+
+Muestra una línea por herramienta:
+
+- `OK catálogo` y `OK ruff` tienen que salir.
+- `FALTA secureprojects` es normal si no tienes ese programa. La revisión funciona igual, pero sin el escaneo de seguridad (ver `TEC_REVIEW_SECUREPROJECTS_BIN`).
+- `FALTA llm-router` es normal con `--no-llm`, porque en ese modo no se usa.
+
+**7. Ejecutar la revisión**
+
+```bat
+tec-review review C:\ruta\al\proyecto --no-llm
+```
+
+**8. Ver el resultado**
+
+```bat
+dir %USERPROFILE%\.tec-review\out
+notepad %USERPROFILE%\.tec-review\out\<proyecto>-<run_id>\report.md
+```
+
+Cambia `<proyecto>-<run_id>` por el nombre de carpeta que muestra `dir`.
+
+**Para usarlo otro día**, la instalación ya queda hecha: solo necesitas los pasos 2, 5 y 7.
+
 ## Uso
+
+Todos los comandos asumen el entorno virtual activado (paso 5). Sin activarlo, usa la ruta completa: `.venv\Scripts\tec-review ...`.
 
 ```powershell
 # Revisión completa: usa llm-router en http://localhost:8001

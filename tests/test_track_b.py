@@ -4,8 +4,8 @@ import json
 import re
 
 import pytest
-
 from conftest import ROOT, write_tree
+
 from tec_review.agentic.candidates import select_candidates
 from tec_review.agentic.interpret import Budget
 from tec_review.agentic.track_b import Judge, quote_is_literal, region_lines
@@ -28,12 +28,12 @@ SELECTOR_CASES = {
     "design.srp": (_long("enorme", 26), _long("corta", 8)),
     "design.dip.direct-instantiation": (
         "class Servicio:\n    def ejecutar(self):\n        repo = Repositorio()\n        return repo\n",
-        "class RepoFactory:\n    def create(self):\n        return Repositorio()\n\n\n"
-        "class Otro:\n    def ruta(self, p):\n        return Path(p)\n",
+        ("class RepoFactory:\n    def create(self):\n        return Repositorio()\n\n\n"
+        "class Otro:\n    def ruta(self, p):\n        return Path(p)\n"),
     ),
     "design.ocp.conditional-dispatch": (
-        "def tarifa(tipo):\n    if tipo == 'a':\n        return 1\n    elif tipo == 'b':\n        return 2\n"
-        "    elif tipo == 'c':\n        return 3\n    elif tipo == 'd':\n        return 4\n    return 0\n",
+        ("def tarifa(tipo):\n    if tipo == 'a':\n        return 1\n    elif tipo == 'b':\n        return 2\n"
+        "    elif tipo == 'c':\n        return 3\n    elif tipo == 'd':\n        return 4\n    return 0\n"),
         "def tarifa(tipo):\n    if tipo == 'a':\n        return 1\n    return 0\n",
     ),
     "design.isp.fat-interface": (
@@ -43,10 +43,10 @@ SELECTOR_CASES = {
         + "".join(f"    def m{i}(self): ...\n" for i in range(3)),
     ),
     "design.lsp.contract-break": (
-        "class Base:\n    def pagar(self, importe):\n        return importe\n\n\n"
-        "class Hija(Base):\n    def pagar(self):\n        raise NotImplementedError\n",
-        "class Base:\n    def pagar(self, importe):\n        return importe\n\n\n"
-        "class Hija(Base):\n    def pagar(self, importe):\n        return importe * 2\n",
+        ("class Base:\n    def pagar(self, importe):\n        return importe\n\n\n"
+        "class Hija(Base):\n    def pagar(self):\n        raise NotImplementedError\n"),
+        ("class Base:\n    def pagar(self, importe):\n        return importe\n\n\n"
+        "class Hija(Base):\n    def pagar(self, importe):\n        return importe * 2\n"),
     ),
     "design.thin-entrypoints": (
         "@app.post('/pagos')\n" + _long("crear_pago", 13),
@@ -65,9 +65,9 @@ SELECTOR_CASES = {
         "def leer(p):\n    with open(p) as f:\n        return f.read()\n",
     ),
     "llm.output-to-sink": (
-        "import subprocess\n\n\ndef ejecutar(client, q):\n"
+        ("import subprocess\n\n\ndef ejecutar(client, q):\n"
         "    r = client.chat.completions.create(model='m', messages=q, max_tokens=50)\n"
-        "    return subprocess.run(r.text, shell=True)\n",
+        "    return subprocess.run(r.text, shell=True)\n"),
         "def preguntar(client, q):\n    return client.chat.completions.create(model='m', messages=q, max_tokens=5)\n",
     ),
     "llm.secrets-in-prompt": (

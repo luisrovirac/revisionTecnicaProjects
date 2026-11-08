@@ -2,6 +2,18 @@ from pathlib import Path
 
 import pytest
 
+from tec_review.config import load_settings
+from tec_review.facts.adapters.ruff import RuffAnalyzer
+from tec_review.facts.duplication import DuplicationAnalyzer
+from tec_review.facts.inventory import build_inventory
+from tec_review.facts.normalize import normalize
+from tec_review.facts.paths import PathRulesAnalyzer
+from tec_review.facts.patterns import PatternAnalyzer
+from tec_review.facts.python_ast import PythonAstAnalyzer
+from tec_review.facts.python_graph import PythonGraphAnalyzer
+from tec_review.facts.typescript_ast import TypeScriptAnalyzer
+from tec_review.rules.catalog import load_catalog
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
@@ -14,19 +26,6 @@ def catalog_dir() -> Path:
 @pytest.fixture
 def rules_docs_dir() -> Path:
     return ROOT / "Rules"
-
-
-from tec_review.config import load_settings  # noqa: E402
-from tec_review.facts.adapters.ruff import RuffAnalyzer  # noqa: E402
-from tec_review.facts.duplication import DuplicationAnalyzer  # noqa: E402
-from tec_review.facts.patterns import PatternAnalyzer  # noqa: E402
-from tec_review.facts.python_graph import PythonGraphAnalyzer  # noqa: E402
-from tec_review.facts.typescript_ast import TypeScriptAnalyzer  # noqa: E402
-from tec_review.facts.inventory import build_inventory  # noqa: E402
-from tec_review.facts.normalize import normalize  # noqa: E402
-from tec_review.facts.paths import PathRulesAnalyzer  # noqa: E402
-from tec_review.facts.python_ast import PythonAstAnalyzer  # noqa: E402
-from tec_review.rules.catalog import load_catalog  # noqa: E402
 
 
 def write_tree(root: Path, files: dict[str, str]) -> Path:

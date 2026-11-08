@@ -12,7 +12,13 @@ from pydantic import BaseModel, ValidationError
 
 from tec_review.agentic.prompts import build_messages, messages_hash
 from tec_review.agentic.verify import Verification, verify
-from tec_review.domain.models import ContextBundle, Hallazgo, Interpretacion, LLMInterpretation, LLMUsage
+from tec_review.domain.models import (
+    ContextBundle,
+    Hallazgo,
+    Interpretacion,
+    LLMInterpretation,
+    LLMUsage,
+)
 from tec_review.domain.ports import LLMError, LLMMessage, LLMPort, LLMResponse
 
 MAX_RETRIES = 2

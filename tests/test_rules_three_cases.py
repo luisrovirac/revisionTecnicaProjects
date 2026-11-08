@@ -6,7 +6,6 @@ caso 3: cambio no relacionado -> cero hallazgos de esa regla
 """
 
 import pytest
-
 from conftest import FIXTURES, findings_for, write_tree
 
 # Material adversarial: vive en un fixture identificado como tal (safe_path de llm.prompt-injection).

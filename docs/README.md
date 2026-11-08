@@ -163,6 +163,8 @@ py -3.11 -m venv .venv
 
 ## 4. Cómo se usa
 
+Si es tu primera vez y prefieres un recorrido completo, paso a paso —activar el entorno y auditar un proyecto concreto de principio a fin—, sigue [`como-usar.md`](como-usar.md).
+
 ### Revisar un proyecto
 
 ```powershell

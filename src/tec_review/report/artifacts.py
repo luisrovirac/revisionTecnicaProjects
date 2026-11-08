@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -61,7 +61,7 @@ def write_manifest(state: RunState) -> Path:
     data = {
         "schema_version": SCHEMA_VERSION, "tec_review_version": __version__,
         "run_id": state.run_id, "started_at": state.started_at.isoformat(),
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
         "target": str(state.target), "settings": settings,
         "settings_fingerprint": state.settings.fingerprint(),
         "tools": [r.model_dump(mode="json") for r in state.tool_runs],

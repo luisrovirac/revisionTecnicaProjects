@@ -4,8 +4,8 @@ import json
 import shutil
 
 import pytest
-
 from conftest import FIXTURES, ROOT, deterministic_analyzers
+
 from tec_review.config import load_settings
 from tec_review.facts.inventory import PathGuard, PathGuardError
 from tec_review.llm.fake import FakeLLM, grounded_answer
